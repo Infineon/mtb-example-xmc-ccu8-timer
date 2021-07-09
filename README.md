@@ -2,11 +2,11 @@
 
 This code example demonstrates the usage of Capture-Compare Unit 8 (CCU8) in the XMC&trade; MCU in timer mode.
 
-The CCU8 timer slice program blinks an LED when a timer period match interrupt occurs.
+The CCU8 timer slice program blinks an LED when a timer period matches an interrupt.
 
 ## Requirements
 
-- [ModusToolbox® software](https://www.cypress.com/products/modustoolbox-software-environment) v2.3
+- [ModusToolbox&trade; software](https://www.cypress.com/products/modustoolbox-software-environment) v2.3
 - [SEGGER J-Link software](https://www.segger.com/downloads/jlink/#J-LinkSoftwareAndDocumentationPack)
 - Programming Language: C
 - Associated Parts: All [XMC™ MCU](https://www.infineon.com/cms/en/product/microcontroller/32-bit-industrial-microcontroller-based-on-arm-cortex-m/) parts
@@ -108,11 +108,15 @@ Various CLI tools include a `-h` option that prints help information to the term
 
 You can debug the example to step through the code. In the IDE, use the **\<Application Name> Debug (JLink)** configuration in the **Quick Panel**. For more details, see the "Program and Debug" section in the [Eclipse IDE for ModusToolbox User Guide](https://www.cypress.com/MTBEclipseIDEUserGuide).
 
+## Design and Implementation
+
+This example shows the working of the CCU8 peripheral of the XMC MCU. It consists of one slice configured as timer and an interrupt function - 'TIMER_0_PERIOD_MATCH_EVENT_HANDLER()'. This interrupt function toggles a LED in the main function if there is a time lapse and the period match event is triggered.
+
 ## Related Resources
 
 | Kit Guides                                            |                                                              |
 | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| [XMC4700/XMC4800 Relax Kit Series-V1](https://www.infineon.com/dgdl/Infineon-Board_User_Manual_XMC4700_XMC4800_Relax_Kit_Series-UM-v01_02-EN.pdf?fileId=5546d46250cc1fdf01513f8e052d07fc) – Board User‘s Manual | Describes the schematic and hardware of the XMC4700/XMC4800 Relax Kit Series-V1, equipped with an Arm® Cortex®-M4 based XMC™ Microcontroller from Infineon Technologies AG. |
+| [XMC4700/XMC4800 Relax Kit Series-V1](https://www.infineon.com/dgdl/Infineon-Board_User_Manual_XMC4700_XMC4800_Relax_Kit_Series-UM-v01_02-EN.pdf?fileId=5546d46250cc1fdf01513f8e052d07fc) – Board User‘s Manual | Describes the schematic and hardware of the XMC4700/XMC4800 Relax Kit Series-V1, equipped with an Arm® Cortex®-M4 based XMC&trade; Microcontroller from Infineon Technologies AG. |
 | [XMC1400 Boot Kit](https://www.infineon.com/dgdl/Infineon-Board_Users_Manual_XMC1400_Boot_Kit.pdf-UM-v01_00-EN.pdf?fileId=5546d462525dbac401527815f9a073fd) – Board User‘s Manual | Describes the schematic and hardware of XMC1400 Boot Kit for application code development on the XMC1404-Q064X0200 device.|
 | **Code Examples**                                            |                                                              |
 | [Using ModusToolbox](https://github.com/cypresssemiconductorco/Code-Examples-for-ModusToolbox-Software) |
@@ -139,13 +143,14 @@ Document Title: *CE232571* - *XMC MCU: CCU8 Timer*
 | Version | Description of Change |
 | ------- | --------------------- |
 | 1.0.0   | New code example      |
+| 1.0.1   | Updated README        |
 ------
 
 All other trademarks or registered trademarks referenced herein are the property of their respective owners.
 
 ![banner](images/ifx_logo_rgb.jpg)
 
-© 2021 Infineon Technologies AG
+© 2020-2021 Infineon Technologies AG
 
 All Rights Reserved.
 
