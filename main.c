@@ -8,7 +8,7 @@
 *
 ******************************************************************************
 *
-* Copyright (c) 2015-2021, Infineon Technologies AG
+* Copyright (c) 2015-2022, Infineon Technologies AG
 * All rights reserved.                        
 *                                             
 * Boost Software License - Version 1.0 - August 17th, 2003
@@ -39,13 +39,16 @@
 
 #include "cybsp.h"
 #include "cy_utils.h"
+#include <stdio.h>
+#include "cy_retarget_io.h"
 #include "xmc_ccu8.h"
 
 /*******************************************************************************
 * Macros
 *******************************************************************************/
-/*Define macros for XMC14x Boot kit*/
-#ifdef TARGET_KIT_XMC14_BOOT_001
+
+/* Define macros for XMC14x Boot kit */
+#if (UC_SERIES == XMC14)
 #define TIMER_0_PERIOD_MATCH_EVENT_PRIORITY   3
 #define TIMER_0_PERIOD_MATCH_EVENT_HANDLER    IRQ_Hdlr_1
 #define PERIOD_MATCH_COUNT                    (46874U)
@@ -54,8 +57,8 @@
 #define TIMER_0_PERIOD_MATCH_EVENT_IRQN       IRQ1_IRQn
 #endif
 
-/*Define macros for XMC47x Relax kit*/
-#ifdef TARGET_KIT_XMC47_RELAX_V1
+/* Define macros for XMC47x kit */
+#if (UC_SERIES == XMC47)
 #define TIMER_0_PERIOD_MATCH_EVENT_PRIORITY   61
 #define TIMER_0_PERIOD_MATCH_EVENT_HANDLER    IRQ_Hdlr_61
 #define PERIOD_MATCH_COUNT                    (35155U)
@@ -69,6 +72,14 @@
 #define MODULE_NUMBER     (0U)
 #define SLICE_NUMBER      (1U)
 
+/* Define macro to enable/disable printing of debug messages */
+#define ENABLE_XMC_DEBUG_PRINT (0)
+
+/* Define macro to set the loop count before printing debug messages */
+#if ENABLE_XMC_DEBUG_PRINT
+#define DEBUG_LOOP_COUNT_MAX                    2
+static bool ENTER_LOOP = false;
+#endif
 
 /*******************************************************************************
 * Global Variables
@@ -78,13 +89,13 @@ static volatile bool timer_interrupt_flag = false;
 /*******************************************************************************
 * Data Structure
 *******************************************************************************/
-/*Initialization data of a CCU8 Slice*/
+/* Initialization data of a CCU8 Slice */
 XMC_CCU8_SLICE_COMPARE_CONFIG_t g_timer_object =
 {
     .timer_mode          = XMC_CCU8_SLICE_TIMER_COUNT_MODE_EA,       /*Select Edge aligned or Centre Aligned*/
     .monoshot            = false,                                    /*Repetitive mode: continuous mode of operation*/
     .shadow_xfer_clear   = false,                                    /*Select PR and CR shadow xfer happen when timer is cleared*/
-    .dither_timer_period = false,                                    /*Select for the period of the timer dither*/ 
+    .dither_timer_period = false,                                    /*Select for the period of the timer dither*/
     .dither_duty_cycle   = false,                                    /*Select for the compare match of the timer dither*/
     .prescaler_mode      = XMC_CCU8_SLICE_PRESCALER_MODE_NORMAL,     /*Normal or floating prescaler mode selection*/
     .mcm_ch1_enable      = false,                                    /*Select Multi-Channel mode for compare channel 1 enable*/
@@ -134,73 +145,86 @@ int main(void)
 {
     cy_rslt_t result;
 
-    /*Initialize the device and board peripherals*/
+    /* Initialize the device and board peripherals */
     result = cybsp_init();
     if (result != CY_RSLT_SUCCESS)
     {
         CY_ASSERT(0);
     }
 
-    /*Set CCU8 Module clock*/
+    /* Initialize printf retarget */
+    cy_retarget_io_init(CYBSP_DEBUG_UART_HW);
+
+    #if ENABLE_XMC_DEBUG_PRINT
+    printf("Initialization done\r\n");
+    #endif
+
+    /* Set CCU8 Module clock */
     XMC_CCU8_SetModuleClock(MODULE_PTR, XMC_CCU8_CLOCK_SCU);
 
-    /*Set CCU8 Module Init*/
+    /* Set CCU8 Module Init */
     XMC_CCU8_Init(MODULE_PTR, XMC_CCU8_SLICE_MCMS_ACTION_TRANSFER_PR_CR);
 
-    /*Enable the CCU8 Slice Clock*/
+    /* Enable the CCU8 Slice Clock */
     XMC_CCU8_EnableClock(MODULE_PTR, SLICE_NUMBER);
 
-    /*Start the prescaler and restore clocks to slices*/
+    /* Start the prescaler and restore clocks to slices */
     XMC_CCU8_StartPrescaler(MODULE_PTR);
 
-    /*Initialize the CCU8 Slice*/
+    /* Initialize the CCU8 Slice */
     XMC_CCU8_SLICE_CompareInit(SLICE_PTR, &g_timer_object);
 
-    /*Program a value into Period Match register*/
+    /* Program a value into Period Match register */
     XMC_CCU8_SLICE_SetTimerPeriodMatch(SLICE_PTR, PERIOD_MATCH_COUNT);
 
-    /*Enable shadow transfer*/
+    /* Enable shadow transfer */
     XMC_CCU8_EnableShadowTransfer(MODULE_PTR, XMC_CCU8_SHADOW_TRANSFER_SLICE_1);
 
-    /*Enable Period Match event*/
+    /* Enable Period Match event */
     XMC_CCU8_SLICE_EnableEvent(SLICE_PTR, XMC_CCU8_SLICE_IRQ_ID_PERIOD_MATCH);
 
-    /*Connect Period Match event to Service Request lines -SRx*/
+    /* Connect Period Match event to Service Request lines -SRx */
     XMC_CCU8_SLICE_SetInterruptNode(SLICE_PTR, XMC_CCU8_SLICE_IRQ_ID_PERIOD_MATCH, XMC_CCU8_SERVICE_REQUEST_ID);
 
-    /*Clears IDLE mode for the slice*/
+    /* Clears IDLE mode for the slice */
     XMC_CCU8_EnableClock(MODULE_PTR, SLICE_NUMBER);
 
-    /*Start CCU8 Timer*/ 
+    /* Start CCU8 Timer */
     XMC_CCU8_SLICE_StartTimer(SLICE_PTR);
 
-    #ifdef TARGET_KIT_XMC14_BOOT_001
-    /*Interrupt Multiplexer configuration*/
-    XMC_SCU_SetInterruptControl(TIMER_0_PERIOD_MATCH_EVENT_IRQN, XMC_SCU_IRQCTRL_CCU80_SR0_IRQ1);
-    /*Set priority*/
+    #if (UC_SERIES == XMC14)
+    /* Set priority */
     NVIC_SetPriority(TIMER_0_PERIOD_MATCH_EVENT_IRQN, TIMER_0_PERIOD_MATCH_EVENT_PRIORITY);
     #endif
 
-    #ifdef TARGET_KIT_XMC47_RELAX_V1
-    /*Set Interrupt priority*/
+    #if (UC_SERIES == XMC47)
+    /* Set priority */
     NVIC_SetPriority(TIMER_0_PERIOD_MATCH_EVENT_IRQN, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), TIMER_0_PERIOD_MATCH_EVENT_PRIORITY, 0));
     #endif
 
-    /*Enable IRQ*/
+    /* Enable IRQ */
     NVIC_EnableIRQ(TIMER_0_PERIOD_MATCH_EVENT_IRQN);
 
-    /*Infinite loop*/
-    while (1)
+    /* Infinite loop */
+    while(1)
     {
-        /*Check if timer elapsed (interrupt fired) and toggle the LED*/
+        /* Check if timer elapsed (interrupt fired) and toggle the LED */
         if (timer_interrupt_flag)
         {
-            /*Clear the flag */
+            /* Clear the flag */
             timer_interrupt_flag = false;
+            
             /* Toggle the USER LED state */
             XMC_GPIO_ToggleOutput(CYBSP_USER_LED_PORT, CYBSP_USER_LED_PIN);
-        }
 
+            #if ( ENABLE_XMC_DEBUG_PRINT )
+            if(!ENTER_LOOP)
+            {
+                printf("User LED toggled\r\n");
+                ENTER_LOOP = true;
+            }
+            #endif
+        }
     }
 }
 
