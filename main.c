@@ -41,36 +41,29 @@
 #include "cy_utils.h"
 #include <stdio.h>
 #include "cy_retarget_io.h"
-#include "xmc_ccu8.h"
 
 /*******************************************************************************
 * Macros
 *******************************************************************************/
 
-/* Define macros for XMC14x Boot kit */
-#if (UC_SERIES == XMC14)
-#define TIMER_0_PERIOD_MATCH_EVENT_PRIORITY   3
-#define TIMER_0_PERIOD_MATCH_EVENT_HANDLER    IRQ_Hdlr_1
-#define PERIOD_MATCH_COUNT                    (46874U)
-#define PRESCALER_INITVAL                     (11U)
-#define XMC_CCU8_SERVICE_REQUEST_ID           XMC_CCU8_SLICE_SR_ID_0
-#define TIMER_0_PERIOD_MATCH_EVENT_IRQN       IRQ1_IRQn
+/* Define macros for  XMC13x and XMC14x Boot kit */
+#if (UC_SERIES == XMC13) || (UC_SERIES == XMC14)
+#define TIMER_0_PERIOD_MATCH_EVENT_PRIORITY     3
+#define TIMER_0_PERIOD_MATCH_EVENT_HANDLER      CCU80_SR0_INTERRUPT_HANDLER
+#define TIMER_0_PERIOD_MATCH_EVENT_IRQN         CCU80_SR0_IRQN
 #endif
 
-/* Define macros for XMC47x kit */
-#if (UC_SERIES == XMC47)
-#define TIMER_0_PERIOD_MATCH_EVENT_PRIORITY   61
-#define TIMER_0_PERIOD_MATCH_EVENT_HANDLER    IRQ_Hdlr_61
-#define PERIOD_MATCH_COUNT                    (35155U)
-#define PRESCALER_INITVAL                     (12U)
-#define XMC_CCU8_SERVICE_REQUEST_ID           XMC_CCU8_SLICE_SR_ID_1
-#define TIMER_0_PERIOD_MATCH_EVENT_IRQN       CCU80_1_IRQn
+/* Define macros for XMC48x, XMC47x, XMX43x, XMC45x Relax kits, XMC44x and XMC42x PLT2GO kits */
+#if (UC_FAMILY == XMC4)
+#define TIMER_0_PERIOD_MATCH_EVENT_PRIORITY     61
+#define TIMER_0_PERIOD_MATCH_EVENT_HANDLER      CCU80_SR1_INTERRUPT_HANDLER
+#define TIMER_0_PERIOD_MATCH_EVENT_IRQN         CCU80_SR1_IRQN
 #endif
 
-#define SLICE_PTR         CCU80_CC81
-#define MODULE_PTR        CCU80
-#define MODULE_NUMBER     (0U)
-#define SLICE_NUMBER      (1U)
+/*******************************************************************************
+* Global Variables
+*******************************************************************************/
+static volatile bool timer_interrupt_flag = false;
 
 /* Define macro to enable/disable printing of debug messages */
 #define ENABLE_XMC_DEBUG_PRINT (0)
@@ -80,33 +73,6 @@
 #define DEBUG_LOOP_COUNT_MAX                    2
 static bool ENTER_LOOP = false;
 #endif
-
-/*******************************************************************************
-* Global Variables
-*******************************************************************************/
-static volatile bool timer_interrupt_flag = false;
-
-/*******************************************************************************
-* Data Structure
-*******************************************************************************/
-/* Initialization data of a CCU8 Slice */
-XMC_CCU8_SLICE_COMPARE_CONFIG_t g_timer_object =
-{
-    .timer_mode          = XMC_CCU8_SLICE_TIMER_COUNT_MODE_EA,       /*Select Edge aligned or Centre Aligned*/
-    .monoshot            = false,                                    /*Repetitive mode: continuous mode of operation*/
-    .shadow_xfer_clear   = false,                                    /*Select PR and CR shadow xfer happen when timer is cleared*/
-    .dither_timer_period = false,                                    /*Select for the period of the timer dither*/
-    .dither_duty_cycle   = false,                                    /*Select for the compare match of the timer dither*/
-    .prescaler_mode      = XMC_CCU8_SLICE_PRESCALER_MODE_NORMAL,     /*Normal or floating prescaler mode selection*/
-    .mcm_ch1_enable      = false,                                    /*Select Multi-Channel mode for compare channel 1 enable*/
-    .mcm_ch2_enable      = false,                                    /*Select Multi-Channel mode for compare channel 2 enable*/
-    .slice_status        = XMC_CCU8_SLICE_STATUS_CHANNEL_1,          /*Selection for which of the two channels drives the slice status output*/
-    .asymmetric_pwm      = false,                                    /*Select if the PWM be a function of the 2 compare channels rather than period value*/
-    .prescaler_initval   = PRESCALER_INITVAL,                        /*Prescaler divider value*/
-    .float_limit         = 0U,                                       /*The max value which the prescaler divider can increment to*/
-    .dither_limit        = 0U,                                       /*The value that determines the spreading of dithering*/
-    .timer_concatenation = false                                     /*Enables the concatenation of the timer*/
-};
 
 /*******************************************************************************
 * Function Name: TIMER_0_PERIOD_MATCH_EVENT_HANDLER
@@ -159,45 +125,12 @@ int main(void)
     printf("Initialization done\r\n");
     #endif
 
-    /* Set CCU8 Module clock */
-    XMC_CCU8_SetModuleClock(MODULE_PTR, XMC_CCU8_CLOCK_SCU);
-
-    /* Set CCU8 Module Init */
-    XMC_CCU8_Init(MODULE_PTR, XMC_CCU8_SLICE_MCMS_ACTION_TRANSFER_PR_CR);
-
-    /* Enable the CCU8 Slice Clock */
-    XMC_CCU8_EnableClock(MODULE_PTR, SLICE_NUMBER);
-
-    /* Start the prescaler and restore clocks to slices */
-    XMC_CCU8_StartPrescaler(MODULE_PTR);
-
-    /* Initialize the CCU8 Slice */
-    XMC_CCU8_SLICE_CompareInit(SLICE_PTR, &g_timer_object);
-
-    /* Program a value into Period Match register */
-    XMC_CCU8_SLICE_SetTimerPeriodMatch(SLICE_PTR, PERIOD_MATCH_COUNT);
-
-    /* Enable shadow transfer */
-    XMC_CCU8_EnableShadowTransfer(MODULE_PTR, XMC_CCU8_SHADOW_TRANSFER_SLICE_1);
-
-    /* Enable Period Match event */
-    XMC_CCU8_SLICE_EnableEvent(SLICE_PTR, XMC_CCU8_SLICE_IRQ_ID_PERIOD_MATCH);
-
-    /* Connect Period Match event to Service Request lines -SRx */
-    XMC_CCU8_SLICE_SetInterruptNode(SLICE_PTR, XMC_CCU8_SLICE_IRQ_ID_PERIOD_MATCH, XMC_CCU8_SERVICE_REQUEST_ID);
-
-    /* Clears IDLE mode for the slice */
-    XMC_CCU8_EnableClock(MODULE_PTR, SLICE_NUMBER);
-
-    /* Start CCU8 Timer */
-    XMC_CCU8_SLICE_StartTimer(SLICE_PTR);
-
-    #if (UC_SERIES == XMC14)
+    #if (UC_SERIES == XMC13) || (UC_SERIES == XMC14)
     /* Set priority */
     NVIC_SetPriority(TIMER_0_PERIOD_MATCH_EVENT_IRQN, TIMER_0_PERIOD_MATCH_EVENT_PRIORITY);
     #endif
 
-    #if (UC_SERIES == XMC47)
+    #if (UC_SERIES == XMC48) || (UC_SERIES == XMC47) || (UC_SERIES == XMC45) || (UC_SERIES == XMC44) || (UC_SERIES == XMC43) || (UC_SERIES == XMC42)
     /* Set priority */
     NVIC_SetPriority(TIMER_0_PERIOD_MATCH_EVENT_IRQN, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), TIMER_0_PERIOD_MATCH_EVENT_PRIORITY, 0));
     #endif
