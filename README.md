@@ -14,8 +14,6 @@ The CCU8 timer slice program blinks an LED when a timer period matches an interr
 ## Supported toolchains (make variable 'TOOLCHAIN')
 
 - GNU Arm® embedded compiler v10.3.1 (`GCC_ARM`) - Default value of `TOOLCHAIN`
-- Arm&reg; compiler v6.16 (`ARM`)
-- IAR C/C++ compiler v9.30.1 (`IAR`)
 
 ## Supported kits (make variable 'TARGET')
 
@@ -154,6 +152,7 @@ Document title: *CE232571* - *XMC&trade; MCU: CCU8 timer*
  1.1.0   | Added support for new kits
  2.0.0   | Updated to support ModusToolbox™ software v3.0; CE will not be backwards compatible with previous versions of ModusToolbox™ software
  2.1.0   | Added support for new kits and CCU8 personality
+| 2.1.1   | Updated README        |
 ------
 
 All other trademarks or registered trademarks referenced herein are the property of their respective owners.
